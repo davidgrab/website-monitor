@@ -9,6 +9,7 @@ load_dotenv()
 
 URL = os.getenv("TARGET_URL", "https://lp.vp4.me/jzze")
 CHECK_INTERVAL_SECONDS = int(os.getenv("CHECK_INTERVAL_SECONDS", "30"))
+ALERT_REPEAT_INTERVAL_SECONDS = int(os.getenv("ALERT_REPEAT_INTERVAL_SECONDS", "600"))
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
@@ -56,12 +57,29 @@ def looks_available(page_text: str) -> bool:
     return not any(text in page_text for text in OUT_OF_STOCK_TEXTS)
 
 
+def build_alert_message() -> str:
+    return (
+        "🚨 Shilav Monitor\n\n"
+        "נראה שהקופון/המלאי חזר או שהעמוד השתנה.\n\n"
+        f"🔗 {URL}\n"
+        f"🕒 {now_text()}\n\n"
+        "כדאי להיכנס עכשיו ולבדוק מהר."
+    )
+
+
+def should_send_alert(last_alert_at: float | None, now: float) -> bool:
+    if last_alert_at is None:
+        return True
+    return now - last_alert_at >= ALERT_REPEAT_INTERVAL_SECONDS
+
+
 def main() -> None:
     print(f"Starting monitor for {URL}", flush=True)
     print(f"Checking every {CHECK_INTERVAL_SECONDS} seconds", flush=True)
+    print(f"Repeating alerts every {ALERT_REPEAT_INTERVAL_SECONDS} seconds while available", flush=True)
     print(f"Out-of-stock texts: {OUT_OF_STOCK_TEXTS}", flush=True)
 
-    already_alerted = False
+    last_alert_at: float | None = None
 
     while True:
         try:
@@ -69,18 +87,13 @@ def main() -> None:
             available = looks_available(page_text)
             print(f"{now_text()} | available={available}", flush=True)
 
-            if available and not already_alerted:
-                send_telegram(
-                    "🚨 Shilav Monitor\n\n"
-                    "נראה שהקופון/המלאי חזר או שהעמוד השתנה.\n\n"
-                    f"🔗 {URL}\n"
-                    f"🕒 {now_text()}\n\n"
-                    "כדאי להיכנס עכשיו ולבדוק מהר."
-                )
-                already_alerted = True
-
-            if not available:
-                already_alerted = False
+            if available:
+                now = time.time()
+                if should_send_alert(last_alert_at, now):
+                    send_telegram(build_alert_message())
+                    last_alert_at = now
+            else:
+                last_alert_at = None
 
         except Exception as exc:
             print(f"{now_text()} | error={exc}", flush=True)

@@ -17,6 +17,7 @@ python app.py
 3. Add these variables in the service Variables tab:
    - `TARGET_URL`
    - `CHECK_INTERVAL_SECONDS`
+   - `ALERT_REPEAT_INTERVAL_SECONDS`
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
    - `OUT_OF_STOCK_TEXTS`
